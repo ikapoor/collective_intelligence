@@ -138,3 +138,61 @@ class crawler:
                 self.dbcommit()
                 pages = newpages
 
+
+    '''
+    END OF CRAWLER CLASS
+    '''
+
+
+class searcher:
+    def __init__(self, dbname):
+        self.con = sqlite.connect(dbname)
+
+    def __del__(self):
+        self.con.close()
+
+    def getmatchrows(self, q):
+        # Strings to build the query
+        fieldlist = 'w0.urlid'
+        tablelist = ''
+        clauselist = ''
+        wordids = []
+
+        # Split the words by spaces
+        words = q.split(' ')
+        tablenumber = 0
+
+        for word in words:
+            # Get the word ID
+            wordrow = self.con.execute(
+                "select rowid from wordlist where word='%s'" % word).fetchone()
+            if wordrow != None:
+                print ("wordrow is not none")
+                wordid = wordrow[0]
+                wordids.append(wordid)
+                if tablenumber > 0:
+                    tablelist += ','
+                    clauselist += ' and '
+                    clauselist += 'w%d.urlid=w%d.urlid and ' % (tablenumber - 1, tablenumber)
+                fieldlist += ',w%d.location' % tablenumber
+                tablelist += 'wordlocation w%d' % tablenumber
+                clauselist += 'w%d.wordid=%d' % (tablenumber, wordid)
+                tablenumber += 1
+            else :
+                print ("wordrow is none")
+
+
+
+        # Create the query from the separate parts
+
+        try:
+            fullquery = 'select %s from %s where %s' % (fieldlist, tablelist, clauselist)
+        except:
+            print("except")
+            return
+
+        print(fullquery)
+        cur = self.con.execute(fullquery)
+        rows = [row for row in cur]
+
+        return rows, wordids
