@@ -4,6 +4,8 @@ from urllib.parse import urljoin
 from sqlite3 import dbapi2 as sqlite
 import re
 
+
+
 # Create a list of words to ignore
 ignore_words = set(['the', 'of', 'to', 'and', 'a', 'in', 'is', 'it'])
 
@@ -37,8 +39,8 @@ class crawler:
     # Auxilliary function for getting an entry id and adding
     # it if it's not present
     def getentryid(self,table,field,value,createnew=True):
-        cur = self.con.execute(
-        " select rowid from %s where %s = '%s'" %(table, field, value))
+        query = (" select rowid from %s where %s = '%s'" %(table, field, value))
+        cur = self.con.execute(query)
         res = cur.fetchone()
         if res == None:
             cur = self.con.execute(
@@ -60,7 +62,8 @@ class crawler:
         text = self.gettextonly(soup)
         words = self.separatewords(text)
 
-        # get the URL id
+
+        #get the URL id
         url_id = self.getentryid('urllist', 'url' , url)
 
         # link each of the words to this url
@@ -75,6 +78,10 @@ class crawler:
 
         # Extract the text from an HTML page (no tags)
 
+
+    def delete_data(self):
+        self.con.execute("delete from wordlist")
+
     def gettextonly(self, soup):
         v = soup.string
         if v == None:
@@ -87,10 +94,9 @@ class crawler:
         else:
             return v.strip()
 
-
     # Separate the words by any non-whitespace character
     def separatewords(self, text):
-        splitter = re.compile('\\W*')
+        splitter = re.compile('\\W+', )
         return [s.lower() for s in splitter.split(text) if s != '']
 
     # Return true if this url is already indexed
@@ -166,32 +172,32 @@ class searcher:
             # Get the word ID
             wordrow = self.con.execute(
                 "select rowid from wordlist where word='%s'" % word).fetchone()
-            if wordrow != None:
+            if wordrow is None:
+                print("search yeilded no results");
+            else :
                 print ("wordrow is not none")
                 wordid = wordrow[0]
                 wordids.append(wordid)
                 if tablenumber > 0:
                     tablelist += ','
-                    clauselist += ' and '
-                    clauselist += 'w%d.urlid=w%d.urlid and ' % (tablenumber - 1, tablenumber)
+                    clauselist = clauselist +  ' and '
+                    clauselist = clauselist  + 'w%d.urlid=w%d.urlid and ' % (tablenumber - 1, tablenumber)
                 fieldlist += ',w%d.location' % tablenumber
                 tablelist += 'wordlocation w%d' % tablenumber
                 clauselist += 'w%d.wordid=%d' % (tablenumber, wordid)
                 tablenumber += 1
-            else :
-                print ("wordrow is none")
+
+
+
 
 
 
         # Create the query from the separate parts
 
-        try:
-            fullquery = 'select %s from %s where %s' % (fieldlist, tablelist, clauselist)
-        except:
-            print("except")
-            return
 
-        print(fullquery)
+        fullquery = 'select %s from %s where %s' % (fieldlist, tablelist, clauselist)
+
+        print( "fullquery is : " + fullquery)
         cur = self.con.execute(fullquery)
         rows = [row for row in cur]
 
