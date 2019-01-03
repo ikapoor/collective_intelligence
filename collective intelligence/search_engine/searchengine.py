@@ -6,6 +6,24 @@ import re
 
 
 
+
+
+#Function to make the different scoring methods return a score from 0 to 1
+# where higher means better and 1 means best result
+def normalize_scores( scores, small_is_better = False):
+    small_number = 0.000001 # to avoid division by 0 error
+    if small_is_better:
+        minscore = min(scores.values())
+        return dict([(u, float(minscore) / max(small_number, l)) for (u, l) \
+                 in scores.items()])
+    else:
+        maxscore = max(scores.values())
+        if maxscore == 0: maxscore = small_number
+        return dict([(u, float(c) / maxscore) for (u, c) in scores.items()])
+
+
+
+
 # Create a list of words to ignore
 ignore_words = set(['the', 'of', 'to', 'and', 'a', 'in', 'is', 'it'])
 
@@ -172,10 +190,7 @@ class searcher:
             # Get the word ID
             wordrow = self.con.execute(
                 "select rowid from wordlist where word='%s'" % word).fetchone()
-            if wordrow is None:
-                print("search yeilded no results");
-            else :
-                print ("wordrow is not none")
+            if wordrow is not None:
                 wordid = wordrow[0]
                 wordids.append(wordid)
                 if tablenumber > 0:
@@ -196,9 +211,55 @@ class searcher:
 
 
         fullquery = 'select %s from %s where %s' % (fieldlist, tablelist, clauselist)
-
-        print( "fullquery is : " + fullquery)
         cur = self.con.execute(fullquery)
         rows = [row for row in cur]
 
         return rows, wordids
+
+
+    def getscoredlist(self, rows, wordids):
+        totalscores = dict([(row[0], 0) for row in rows])
+
+
+        weights = [(1.0,self.word_frequency_score(rows))]
+
+        for (weight, scores) in weights:
+            for url in totalscores:
+                totalscores[url] += weight*scores[url]
+
+        return totalscores
+
+
+    def geturlname(self, id):
+        return self.con.execute("select url from urllist where rowid=%d" % id).fetchone()[0]
+
+    def query(self, q):
+        rows, word_ids = self.getmatchrows(q)
+        scores = self.getscoredlist(rows, word_ids)
+        rankedscores = sorted([(score, url) for (url, score) in scores.items()], reverse=1)
+        for (score, urlid) in rankedscores[0:10]:
+            print('%f\t%s' % (score, self.geturlname(urlid)))
+
+
+    def word_frequency_score(self, rows):
+        counts = dict([(row[0], 0) for row in rows])
+        for row in rows:
+            counts[row[0]] += 1
+        return normalize_scores(counts)
+
+    def locationscore(self, rows):
+        locations = dict([(row[0], 1000000) for row in rows])
+        for row in rows:
+            loc = sum(row[1:])
+            if loc < locations[row[0]]: locations[row[0]] = loc
+        return self.normalizescores(locations, smallIsBetter=1)
+
+
+
+
+
+
+
+
+
+
