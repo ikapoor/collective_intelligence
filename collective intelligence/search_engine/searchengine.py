@@ -220,8 +220,9 @@ class searcher:
     def getscoredlist(self, rows, wordids):
         totalscores = dict([(row[0], 0) for row in rows])
 
-
-        weights = [(1.0,self.word_frequency_score(rows))]
+        weights = [(1.0, self.word_frequency_score(rows)),
+                   (1.5, self.locationscore(rows)),
+                   (0.8, self.distance_score(rows))]
 
         for (weight, scores) in weights:
             for url in totalscores:
@@ -252,7 +253,19 @@ class searcher:
         for row in rows:
             loc = sum(row[1:])
             if loc < locations[row[0]]: locations[row[0]] = loc
-        return self.normalizescores(locations, smallIsBetter=1)
+        return normalize_scores(locations, True)
+
+    def distance_score(self, rows):
+        # return 1.0 score for all results if there is only one word in query since there is no distance between words
+        if len(rows[0]) <= 2: return dict([(row[0], 1.0) for row in rows])
+        # Initialize the dictionary with large values
+        mindistance = dict([(row[0], 1000000) for row in rows])
+
+        for row in rows:
+            dist = sum([abs(row[i] - row[i - 1]) for i in range(2, len(row))])
+            if dist < mindistance[row[0]]: mindistance[row[0]] = dist
+        return normalize_scores(mindistance, True)
+
 
 
 
